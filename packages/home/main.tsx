@@ -156,6 +156,23 @@ ipcRenderer.on("import-arduino-lvgl-project", async (sender: any, projectPath: s
     }
 });
 
+ipcRenderer.on("export-to-arduino", async () => {
+    try {
+        let tab = tabs.activeTab;
+        if (tab instanceof ProjectEditorTab) {
+            const { showArduinoExportDialog } = await import(
+                "project-editor/lvgl/arduino-export-dialog"
+            );
+            showArduinoExportDialog(tab.projectStore);
+        } else {
+            notification.info("Please open a project to export");
+        }
+    } catch (err) {
+        console.error("Error exporting to Arduino:", err);
+        notification.error("Failed to export to Arduino: " + String(err));
+    }
+});
+
 const Main = observer(
     class Main extends React.Component<{ children: React.ReactNode }> {
         render() {

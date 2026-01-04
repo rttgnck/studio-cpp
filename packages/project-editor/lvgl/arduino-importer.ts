@@ -104,56 +104,99 @@ function mapWidgetType(lvglType: string): string {
 function convertWidget(widget: LVGLWidget, projectStore: ProjectStore, parent: any): any {
     const eezWidgetType = mapWidgetType(widget.type);
     
-    // Create basic widget structure
+    // Create basic widget structure with proper defaults
     const eezWidget: any = {
         type: eezWidgetType,
         identifier: widget.variableName,
         left: widget.position.x,
         top: widget.position.y,
+        leftUnit: "px",
+        topUnit: "px",
         width: typeof widget.size.width === 'string' ? widget.size.width : widget.size.width,
         height: typeof widget.size.height === 'string' ? widget.size.height : widget.size.height,
-        children: []
+        widthUnit: typeof widget.size.width === 'string' && widget.size.width.includes('%') ? '%' : 'px',
+        heightUnit: typeof widget.size.height === 'string' && widget.size.height.includes('%') ? '%' : 'px',
+        children: [],
+        localStyles: {}
     };
 
-    // Add text property if it exists
+    // Add text property if it exists (for labels)
     if (widget.properties.has("text")) {
         eezWidget.text = widget.properties.get("text");
+        eezWidget.textType = "literal";
     }
 
-    // Add alignment
+    // Add alignment - map LVGL alignment to EEZ Studio format
     if (widget.properties.has("align")) {
-        eezWidget.align = widget.properties.get("align");
+        const align = widget.properties.get("align");
+        // Map LVGL alignment constants to position units
+        if (align.includes("CENTER")) {
+            eezWidget.leftUnit = "center";
+            eezWidget.topUnit = "center";
+        } else if (align.includes("LEFT")) {
+            eezWidget.leftUnit = "left";
+        } else if (align.includes("RIGHT")) {
+            eezWidget.leftUnit = "right";
+        }
+        if (align.includes("TOP")) {
+            eezWidget.topUnit = "top";
+        } else if (align.includes("BOTTOM")) {
+            eezWidget.topUnit = "bottom";
+        }
     }
 
-    // Add value properties
+    // Add value properties (for arcs, sliders, bars)
     if (widget.properties.has("value")) {
         eezWidget.value = widget.properties.get("value");
     }
     if (widget.properties.has("range_min")) {
-        eezWidget.min = widget.properties.get("range_min");
+        eezWidget.rangeMin = widget.properties.get("range_min");
     }
     if (widget.properties.has("range_max")) {
-        eezWidget.max = widget.properties.get("range_max");
+        eezWidget.rangeMax = widget.properties.get("range_max");
     }
 
-    // Convert styles
-    const localStyles: any = {};
+    // Convert styles to LVGL style format
+    const definition: any = {};
     
     if (widget.styles.has("bg_color")) {
-        localStyles.backgroundColor = widget.styles.get("bg_color");
+        const color = widget.styles.get("bg_color");
+        definition.bg_color = { type: "literal", value: color };
+        definition.bg_opa = { type: "literal", value: "LV_OPA_COVER" };
     }
     if (widget.styles.has("text_color")) {
-        localStyles.color = widget.styles.get("text_color");
+        const color = widget.styles.get("text_color");
+        definition.text_color = { type: "literal", value: color };
     }
     if (widget.styles.has("text_font")) {
-        localStyles.font = widget.styles.get("text_font");
+        const font = widget.styles.get("text_font");
+        definition.text_font = { type: "literal", value: `&${font}` };
     }
     if (widget.styles.has("radius")) {
-        localStyles.borderRadius = widget.styles.get("radius");
+        const radius = widget.styles.get("radius");
+        definition.radius = { type: "literal", value: radius };
+    }
+    if (widget.styles.has("border_opa")) {
+        const opa = widget.styles.get("border_opa");
+        definition.border_opa = { type: "literal", value: opa };
     }
 
-    if (Object.keys(localStyles).length > 0) {
-        eezWidget.localStyles = localStyles;
+    if (Object.keys(definition).length > 0) {
+        eezWidget.localStyles = {
+            definition: {
+                MAIN: {
+                    DEFAULT: definition
+                }
+            }
+        };
+    }
+
+    // Add default flags based on widget type
+    if (eezWidgetType === "LVGLLabelWidget") {
+        eezWidget.longMode = "WRAP";
+        eezWidget.recolor = false;
+    } else if (eezWidgetType === "LVGLButtonWidget") {
+        eezWidget.checkable = false;
     }
 
     // Process children recursively
@@ -175,19 +218,23 @@ export function createProjectFromArduino(
 ): any {
     const projectName = path.basename(projectPath);
 
-    // Create basic project structure
+    // Create basic project structure compatible with EEZ Studio LVGL projects
     const projectJson: any = {
         settings: {
             general: {
                 projectVersion: "v3",
                 projectType: "lvgl",
                 lvglVersion: "8.3",
-                imports: []
+                imports: [],
+                displayWidth: 320,
+                displayHeight: 240
             },
             build: {
                 configurations: [
                     {
                         name: "Default",
+                        description: "",
+                        properties: "{}",
                         screenOrientation: "landscape"
                     }
                 ],
@@ -200,6 +247,9 @@ export function createProjectFromArduino(
         actions: [],
         pages: [],
         styles: [],
+        lvglStyles: {
+            styles: []
+        },
         fonts: [],
         bitmaps: [],
         colors: [],
@@ -211,11 +261,13 @@ export function createProjectFromArduino(
         const pageName = path.basename(parsedFile.fileName, path.extname(parsedFile.fileName));
         
         const page: any = {
-            name: pageName,
+            name: pageName || "main_screen",
             description: `Imported from ${parsedFile.fileName}`,
-            width: 320,
-            height: 240,
-            widgets: []
+            style: {
+                inheritFrom: "default"
+            },
+            widgets: [],
+            usedIn: []
         };
 
         // Convert top-level widgets
@@ -229,11 +281,19 @@ export function createProjectFromArduino(
         projectJson.pages.push(page);
     }
 
+    // Add default style
+    projectJson.styles.push({
+        name: "default",
+        id: "default",
+        alwaysBuild: true
+    });
+
     // Add metadata about original source
     projectJson._arduinoImport = {
         sourcePath: projectPath,
         importDate: new Date().toISOString(),
-        sourceFiles: parsedFiles.map(f => f.fileName)
+        sourceFiles: parsedFiles.map(f => f.fileName),
+        note: "This project was imported from an Arduino LVGL project. The original C++ code structure has been converted to EEZ Studio format."
     };
 
     return projectJson;

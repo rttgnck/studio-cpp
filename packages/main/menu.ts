@@ -390,6 +390,23 @@ function buildFileMenu(win: IWindow | undefined) {
                         focusedWindow.webContents.send("build");
                     }
                 }
+            },
+            {
+                type: "separator"
+            },
+            {
+                label: "Export to Arduino Project...",
+                click: async function (item: any, focusedWindow: any) {
+                    if (!focusedWindow) {
+                        focusedWindow =
+                            BrowserWindow.getFocusedWindow() || undefined;
+                    }
+                    if (focusedWindow) {
+                        focusedWindow.webContents.send(
+                            "export-to-arduino"
+                        );
+                    }
+                }
             }
         );
 
