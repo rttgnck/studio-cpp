@@ -219,10 +219,11 @@ export function showArduinoExportDialog(projectStore: ProjectStore) {
     });
 
     // Override the dialog content with our custom component
-    setTimeout(() => {
+    setTimeout(async () => {
         const dialogElement = document.querySelector(".modal-body");
         if (dialogElement) {
-            const root = require("react-dom/client").createRoot(dialogElement);
+            const { createRoot } = await import("react-dom/client");
+            const root = createRoot(dialogElement);
             root.render(
                 <ArduinoExportDialogComponent
                     store={store}

@@ -25,6 +25,7 @@ export class LVGLCodeGenerator {
     private indent: number = 0;
     private indentSize: number = 4;
     private code: string[] = [];
+    private widgetCounter: number = 0;
 
     constructor(options?: CodeGenerationOptions) {
         if (options?.indentSize) {
@@ -57,10 +58,18 @@ export class LVGLCodeGenerator {
     }
 
     /**
+     * Generate a deterministic widget identifier
+     */
+    private generateIdentifier(): string {
+        this.widgetCounter++;
+        return `widget_${this.widgetCounter}`;
+    }
+
+    /**
      * Generate code for a widget
      */
     generateWidget(widget: any, parentVar: string = "parent"): string {
-        const varName = widget.identifier || `obj_${Math.random().toString(36).substr(2, 9)}`;
+        const varName = widget.identifier || this.generateIdentifier();
         const widgetType = this.getWidgetTypeFromEEZ(widget.type);
 
         // Widget creation

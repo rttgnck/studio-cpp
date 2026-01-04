@@ -85,7 +85,8 @@ export class LVGLCppParser {
             const line = this.lines[i].trim();
 
             // Match widget creation: variable = lv_type_create(parent);
-            const createMatch = line.match(/(\w+)\s*=\s*lv_(\w+)_create\(([^)]+)\)\s*;/);
+            // Using a more robust regex that handles simple parent expressions
+            const createMatch = line.match(/(\w+)\s*=\s*lv_(\w+)_create\((\w+)\)\s*;/);
             if (createMatch) {
                 const varName = createMatch[1];
                 const widgetType = createMatch[2];
