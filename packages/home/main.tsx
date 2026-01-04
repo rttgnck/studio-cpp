@@ -144,6 +144,35 @@ ipcRenderer.on("add-instrument", async (sender: any, filePath: any) => {
     });
 });
 
+ipcRenderer.on("import-arduino-lvgl-project", async (sender: any, projectPath: string) => {
+    try {
+        const { showArduinoImportDialog } = await import(
+            "project-editor/lvgl/arduino-import-dialog"
+        );
+        showArduinoImportDialog(projectPath);
+    } catch (err) {
+        console.error("Error importing Arduino LVGL project:", err);
+        notification.error("Failed to import Arduino LVGL project: " + String(err));
+    }
+});
+
+ipcRenderer.on("export-to-arduino", async () => {
+    try {
+        let tab = tabs.activeTab;
+        if (tab instanceof ProjectEditorTab) {
+            const { showArduinoExportDialog } = await import(
+                "project-editor/lvgl/arduino-export-dialog"
+            );
+            showArduinoExportDialog(tab.projectStore);
+        } else {
+            notification.info("Please open a project to export");
+        }
+    } catch (err) {
+        console.error("Error exporting to Arduino:", err);
+        notification.error("Failed to export to Arduino: " + String(err));
+    }
+});
+
 const Main = observer(
     class Main extends React.Component<{ children: React.ReactNode }> {
         render() {
