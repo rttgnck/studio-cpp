@@ -321,6 +321,27 @@ function buildFileMenu(win: IWindow | undefined) {
                     importInstrumentDefinitionFile(filePaths[0]);
                 }
             }
+        },
+        {
+            label: "Import Arduino LVGL Project...",
+            click: async function (item: any, focusedWindow: any) {
+                const result = await dialog.showOpenDialog(focusedWindow, {
+                    properties: ["openDirectory"]
+                });
+                const filePaths = result.filePaths;
+                if (filePaths && filePaths[0]) {
+                    if (!focusedWindow) {
+                        focusedWindow =
+                            BrowserWindow.getFocusedWindow() || undefined;
+                    }
+                    if (focusedWindow) {
+                        focusedWindow.webContents.send(
+                            "import-arduino-lvgl-project",
+                            filePaths[0]
+                        );
+                    }
+                }
+            }
         }
     );
 
